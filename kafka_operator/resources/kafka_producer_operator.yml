@@ -1,0 +1,28 @@
+resources:
+  jobs:
+    kafka_producer_operator:
+      name: "[example] kafka_producer_operator"
+
+      tasks:
+        - task_key: kafka_producer_operator
+          environment_key: default
+          python_operator_task:
+            main: kafka_operator.examples.kafka_producer_operator.KafkaProducerOperator
+            parameters:
+            - name: "task_key"
+              value: "{{task.name}}"
+            - name: "topic"
+              value: "CHANGEME"
+            - name: "key"
+              value: "test-key"
+            - name: "value"
+              value: '{"msg": "hello from operator"}'
+            - name: "conn_id"
+              value: "lakeflow-orchestrator-kafka-connection"
+
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "5"
+            dependencies:
+              - ../dist/*.whl

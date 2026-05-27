@@ -1,0 +1,39 @@
+# This is a Databricks asset bundle definition for kafka_operator.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: kafka_operator
+  uuid: 81b7c241-4817-42e9-af54-f63deb4171c3
+  engine: direct
+
+include:
+  - resources/kafka_producer_operator.yml
+  # Disabled for testing:
+  # - resources/counting_sensor.yml
+  # - resources/run_job_operator.yml
+  # - resources/slack.yml
+  # - resources/sum_task.yml
+
+artifacts:
+  python_artifact:
+    type: whl
+    build: uv build --wheel
+
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7064161269814046.2.staging.azuredatabricks.net
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-7064161269814046.2.staging.azuredatabricks.net
+      # We explicitly deploy to /Workspace/Users/harsha.pasala@databricks.com to make sure we only have a single copy.
+      root_path: /Workspace/Users/harsha.pasala@databricks.com/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - user_name: harsha.pasala@databricks.com
+        level: CAN_MANAGE

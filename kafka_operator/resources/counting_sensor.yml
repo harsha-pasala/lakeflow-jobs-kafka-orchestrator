@@ -1,0 +1,23 @@
+resources:
+  jobs:
+    counting_sensor:
+      name: "[example] counting_sensor"
+
+      tasks:
+        - task_key: counting_sensor
+          environment_key: default
+          python_operator_task:
+            main: kafka_operator.examples.counting_sensor.CountingSensor
+            parameters:
+            - name: "task_key"
+              value: "{{task.name}}"
+            # parameters with default values can be ommited
+            # - name: "limit"
+            #   value: "5"
+
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "5"
+            dependencies:
+              - ../dist/*.whl
