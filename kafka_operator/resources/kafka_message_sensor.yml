@@ -1,28 +1,33 @@
 resources:
   jobs:
-    kafka_producer_operator:
-      name: kafka_producer_operator
+    kafka_message_sensor:
+      name: kafka_message_sensor
 
       tasks:
-        - task_key: kafka_producer_operator
+        - task_key: kafka_message_sensor
           environment_key: default
           python_operator_task:
-            main: kafka_operator.kafka_producer_operator.KafkaProducerOperator
+            main: kafka_operator.kafka_message_sensor.KafkaMessageSensor
             parameters:
               - name: task_key
                 value: "{{task.name}}"
               - name: topic
-                value: ${var.producer_topic}
-              - name: key
-                value: test-key
-              - name: value
-                value: '{"msg": "hello from operator"}'
+                value: ${var.sensor_topic}
+              - name: match_value_contains
+                value: ${var.sensor_match_value}
+              - name: group_id
+                value: "kafka-sensor-{{job.id}}-{{job.run_id}}"
               - name: bootstrap_servers
                 value: ${var.bootstrap_servers}
               - name: secret_scope
                 value: ${var.secret_scope}
               - name: secret_key
                 value: ${var.secret_key}
+              # Optional parameters (Python defaults apply if omitted):
+              # - name: defer_seconds
+              #   value: "30"
+              # - name: timeout_seconds
+              #   value: "900"
 
       environments:
         - environment_key: default

@@ -1,5 +1,7 @@
-# This is a Databricks asset bundle definition for kafka_operator.
-# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+# Databricks Asset Bundle for the kafka_operator package.
+# Defines a Kafka producer operator and a Kafka message sensor that run
+# as Python Operator job tasks. Env-specific values flow through bundle
+# variables so the same definitions deploy cleanly across dev/staging/prod.
 bundle:
   name: kafka_operator
   uuid: 81b7c241-4817-42e9-af54-f63deb4171c3
@@ -7,33 +9,62 @@ bundle:
 
 include:
   - resources/kafka_producer_operator.yml
-  # Disabled for testing:
-  # - resources/counting_sensor.yml
-  # - resources/run_job_operator.yml
-  # - resources/slack.yml
-  # - resources/sum_task.yml
+  - resources/kafka_message_sensor.yml
 
 artifacts:
   python_artifact:
     type: whl
-    build: uv build --wheel
+    build: rm -rf dist/*.whl && uv build --wheel
+
+variables:
+  bootstrap_servers:
+    description: Kafka bootstrap servers (Event Hubs Kafka surface host:port).
+    default: dlt-eventhub.servicebus.windows.net:9093
+  secret_scope:
+    description: Databricks secret scope holding the Kafka SAS connection string.
+    default: kafka-eh
+  secret_key:
+    description: Key within secret_scope storing the SAS connection string.
+    default: sas_connection_string
+  producer_topic:
+    description: Kafka topic (event hub) the producer writes to.
+    default: rtm-dest
+  sensor_topic:
+    description: Kafka topic (event hub) the sensor watches.
+    default: rtm-source
+  sensor_match_value:
+    description: Substring the sensor looks for in the message body to complete.
+    default: done
 
 targets:
   dev:
-    # The default target uses 'mode: development' to create a development copy.
-    # - Deployed resources get prefixed with '[dev my_user_name]'
-    # - Any job schedules and triggers are paused by default.
-    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
     mode: development
     default: true
     workspace:
       host: https://adb-7064161269814046.2.staging.azuredatabricks.net
-  prod:
+
+  staging:
     mode: production
     workspace:
       host: https://adb-7064161269814046.2.staging.azuredatabricks.net
-      # We explicitly deploy to /Workspace/Users/harsha.pasala@databricks.com to make sure we only have a single copy.
       root_path: /Workspace/Users/harsha.pasala@databricks.com/.bundle/${bundle.name}/${bundle.target}
     permissions:
       - user_name: harsha.pasala@databricks.com
         level: CAN_MANAGE
+    # Per-env overrides go here, e.g.:
+    # variables:
+    #   bootstrap_servers: staging-kafka.example.com:9093
+    #   secret_scope: kafka-eh-staging
+
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-7064161269814046.2.staging.azuredatabricks.net
+      root_path: /Workspace/Users/harsha.pasala@databricks.com/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - user_name: harsha.pasala@databricks.com
+        level: CAN_MANAGE
+    # Per-env overrides go here, e.g.:
+    # variables:
+    #   bootstrap_servers: prod-kafka.example.com:9093
+    #   secret_scope: kafka-eh-prod
