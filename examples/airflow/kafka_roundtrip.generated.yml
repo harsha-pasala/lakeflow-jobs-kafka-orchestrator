@@ -1,0 +1,35 @@
+resources:
+  jobs:
+    kafka_roundtrip:
+      name: kafka_roundtrip
+      schedule:
+        quartz_cron_expression: 0 0 0 * * ?
+        timezone_id: UTC
+      tasks:
+      - task_key: await_done
+        environment_key: default
+        python_operator_task:
+          main: kafka_operator.kafka_message_sensor.KafkaMessageSensor
+          parameters:
+          - name: task_key
+            value: '{{task.name}}'
+          - name: topic
+            value: rtm-source
+          - name: group_id
+            value: kafka-sensor-{{job.id}}-{{job.run_id}}
+          - name: bootstrap_servers
+            value: ${var.bootstrap_servers}
+          - name: secret_scope
+            value: ${var.secret_scope}
+          - name: secret_key
+            value: ${var.secret_key}
+          - name: match_value_contains
+            value: done
+          - name: defer_seconds
+            value: '30'
+      environments:
+      - environment_key: default
+        spec:
+          environment_version: '5'
+          dependencies:
+          - ../dist/*.whl

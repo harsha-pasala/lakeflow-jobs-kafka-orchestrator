@@ -1,0 +1,39 @@
+{
+  "name": "convert_await_message_sensor",
+  "description": "Migrate an Apache Airflow AwaitMessageSensor (apache-airflow-providers-apache-kafka) to a Databricks Lakeflow KafkaMessageSensor python_operator_task. Returns a task dict ready to drop under resources.jobs.<job>.tasks in a Databricks Asset Bundle. Use when converting an existing Airflow Kafka workflow to run on Databricks Jobs.",
+  "module": "kafka_operator.airflow_migration",
+  "entrypoint": "convert_await_message_sensor",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "task_id": {
+        "type": "string",
+        "description": "The Airflow task_id; becomes the bundle task_key."
+      },
+      "topics": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "The Airflow sensor's topics. The first entry is used (KafkaMessageSensor watches one topic)."
+      },
+      "match_value_contains": {
+        "type": "string",
+        "description": "Substring the message body must contain to complete, i.e. the intent of the Airflow apply_function. Leave empty to complete on any message received on the topic.",
+        "default": ""
+      },
+      "poll_interval": {
+        "type": "integer",
+        "description": "Airflow poll_interval in seconds; becomes defer_seconds (compute released between polls).",
+        "default": 30
+      },
+      "timeout_seconds": {
+        "type": "integer",
+        "description": "Optional hard wall-clock ceiling across deferrals."
+      },
+      "group_id": {
+        "type": "string",
+        "description": "Kafka consumer group. Defaults to a per-run group so each job run gets a clean watch."
+      }
+    },
+    "required": ["task_id", "topics"]
+  }
+}
