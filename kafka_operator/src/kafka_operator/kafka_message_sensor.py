@@ -7,7 +7,11 @@ from confluent_kafka import Consumer
 
 
 class KafkaMessageSensor(Sensor):
-    """Waits for a message whose body contains a target substring.
+    """Waits for a message on a topic, optionally matching a target substring.
+
+    If ``match_value_contains`` is set, the sensor completes on the first
+    message whose body contains that substring. If it is omitted (or empty),
+    the sensor completes on the first valid message received on the topic.
 
     State across deferrals is held in Kafka itself via a consumer group:
     each poll creates a fresh Consumer with a stable group.id, reads any
@@ -23,11 +27,11 @@ class KafkaMessageSensor(Sensor):
         self,
         task_key: str,
         topic: str,
-        match_value_contains: str,
         group_id: str,
         bootstrap_servers: str,
         secret_scope: str,
         secret_key: str,
+        match_value_contains: str = "",
         defer_seconds: int = 30,
         timeout_seconds: int = 900,
     ):
@@ -49,9 +53,14 @@ class KafkaMessageSensor(Sensor):
             started_at = str(now)
         elapsed = now - float(started_at)
         if elapsed > self.timeout_seconds:
+            waiting_for = (
+                f"body containing {self.match_value_contains!r}"
+                if self.match_value_contains
+                else "any message"
+            )
             raise Exception(
                 f"KafkaMessageSensor timed out after {elapsed:.0f}s "
-                f"waiting for body containing {self.match_value_contains!r} on topic='{self.topic}'"
+                f"waiting for {waiting_for} on topic='{self.topic}'"
             )
 
         sas_connection_string = dbutils.secrets.get(self.secret_scope, self.secret_key)
@@ -88,10 +97,15 @@ class KafkaMessageSensor(Sensor):
 
                 print(f"Read message partition={msg.partition()} offset={msg.offset()} value={value!r}")
 
-                if self.match_value_contains in value:
+                if not self.match_value_contains or self.match_value_contains in value:
                     consumer.commit(message=msg, asynchronous=False)
+                    reason = (
+                        f"body containing {self.match_value_contains!r}"
+                        if self.match_value_contains
+                        else "any message"
+                    )
                     print(
-                        f"Matched body containing {self.match_value_contains!r} "
+                        f"Matched {reason} "
                         f"at partition={msg.partition()} offset={msg.offset()}"
                     )
                     return SensorResult.completed()
@@ -108,8 +122,10 @@ class KafkaMessageSensor(Sensor):
                 print(f"Position checkpoint failed (non-fatal): {e}")
             consumer.close()
 
-        print(
-            f"No match yet for body containing {self.match_value_contains!r}; "
-            f"deferring {self.defer_seconds}s"
+        waiting_for = (
+            f"body containing {self.match_value_contains!r}"
+            if self.match_value_contains
+            else "any message"
         )
+        print(f"No match yet for {waiting_for}; deferring {self.defer_seconds}s")
         return SensorResult.deferred(duration=datetime.timedelta(seconds=self.defer_seconds))

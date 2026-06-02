@@ -33,8 +33,10 @@ variables:
     description: Kafka topic (event hub) the sensor watches.
     default: rtm-source
   sensor_match_value:
-    description: Substring the sensor looks for in the message body to complete.
-    default: done
+    description: >-
+      Optional substring the sensor looks for in the message body to complete.
+      Leave empty to complete on any message received on the topic.
+    default: ""
 
 targets:
   dev:

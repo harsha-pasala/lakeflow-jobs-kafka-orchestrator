@@ -5,7 +5,7 @@ A Databricks Asset Bundle that ships two **Python Operator** job tasks for orche
 | Task | What it does |
 | --- | --- |
 | **Producer operator** (`KafkaProducerOperator`) | Synchronously produces a single message to a Kafka topic, reports the partition/offset (or error) via task values. |
-| **Message sensor** (`KafkaMessageSensor`) | Watches a Kafka topic and completes when a message body contains a configured substring. Releases compute between polls and resumes via Kafka consumer-group offsets. |
+| **Message sensor** (`KafkaMessageSensor`) | Watches a Kafka topic and completes when a message body contains a configured substring — or on any message received, if no substring is configured. Releases compute between polls and resumes via Kafka consumer-group offsets. |
 
 Both run on the Python Operator task runtime (a lightweight REPL VM — **no Spark, no notebook**) and authenticate with **SASL_SSL / PLAIN** against the broker. The default target is the Event Hubs Kafka surface, but any SASL_PLAIN-capable Kafka cluster works.
 
@@ -64,7 +64,7 @@ All env-specific values flow through **bundle variables** declared in `kafka_ope
 | `secret_key` | `sas_connection_string` | Key inside `secret_scope` that maps to the SAS connection string. |
 | `producer_topic` | `rtm-dest` | Topic (event hub) the producer writes to. |
 | `sensor_topic` | `rtm-source` | Topic (event hub) the sensor watches. |
-| `sensor_match_value` | `done` | Substring the sensor looks for inside the decoded UTF-8 message body. |
+| `sensor_match_value` | `""` (empty) | Optional substring the sensor looks for inside the decoded UTF-8 message body. Leave empty to complete on any message received on the topic. |
 
 Override examples:
 
@@ -155,7 +155,7 @@ Per-`poll()` flow:
 2. **Build a fresh `Consumer`** with `SASL_SSL` / `PLAIN`, a stable `group.id`, `enable.auto.commit=False`, and `auto.offset.reset=latest`.
 3. **Subscribe** to `topic`. The first call triggers a group join and partition assignment.
 4. **Inner read loop, ~25 seconds wall clock.** Each iteration calls `consumer.poll(timeout=5.0)`.
-   - On any message, decode the body as UTF-8 and check whether `match_value_contains` is a substring of it.
+   - On any message, decode the body as UTF-8 and check whether `match_value_contains` is a substring of it. If `match_value_contains` is empty, the first valid message matches.
    - On match: synchronously commit through the matched message's offset (`consumer.commit(message=msg, asynchronous=False)`), `close()`, return `SensorResult.completed()`.
    - On non-match: keep reading until the inner-loop deadline.
 5. **Position checkpoint, always.** Before closing the consumer (whether matched or not), get the current `position()` on each assigned partition and commit those offsets synchronously. **This is what allows messages produced during a deferral to still be visible to the next poll** — without it, each new consumer with `auto.offset.reset=latest` would re-pin to the current end of the partition and skip past anything that arrived while we were deferred.
@@ -170,6 +170,8 @@ done
 {"marker": "done"}
 {"status": "all done"}
 ```
+
+When `sensor_match_value` is left empty, the substring check is skipped entirely and the sensor completes on the **first valid message** it reads from the topic.
 
 The Kafka **key** is not considered. This was a deliberate choice for two reasons: (1) the Azure Event Hubs portal Data Explorer can't set Kafka keys (it sends via the AMQP path, where Kafka keys live in the message-annotation `x-opt-kafka-key` and aren't exposed in the send-events UI), and (2) the body substring is a cleanly UI-driveable predicate for ops/test.
 

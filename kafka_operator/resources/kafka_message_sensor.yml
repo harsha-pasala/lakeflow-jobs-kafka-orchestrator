@@ -13,8 +13,6 @@ resources:
                 value: "{{task.name}}"
               - name: topic
                 value: ${var.sensor_topic}
-              - name: match_value_contains
-                value: ${var.sensor_match_value}
               - name: group_id
                 value: "kafka-sensor-{{job.id}}-{{job.run_id}}"
               - name: bootstrap_servers
@@ -24,6 +22,11 @@ resources:
               - name: secret_key
                 value: ${var.secret_key}
               # Optional parameters (Python defaults apply if omitted):
+              # Set match_value_contains to trigger only on messages whose body
+              # contains this substring. Omit it (or leave empty) to trigger on
+              # any message received on the topic.
+              - name: match_value_contains
+                value: ${var.sensor_match_value}
               # - name: defer_seconds
               #   value: "30"
               # - name: timeout_seconds
